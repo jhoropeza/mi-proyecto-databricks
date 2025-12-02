@@ -91,5 +91,3 @@ jobs:
             # Sube el código al workspace de Databricks PROD Claramente en su ruta
             databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
             echo "Notebook desplegado en PROD: ${{ env.DBR_WORKSPACE_PATH }}"
-            databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
-            echo "Notebook desplegado en PROD: ${{ env.DBR_WORKSPACE_PATH }}"
