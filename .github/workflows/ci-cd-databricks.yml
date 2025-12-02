@@ -1,12 +1,17 @@
 # .github/workflows/ci-cd-databricks.yml
 # ----------------------------------------------------------------------
-name: Databricks CI/CD con Aprobación
+name: Databricks CI/CD con Aprobación (Final)
 
 on:
+  # CI TRIGGER: Se activa para integración y despliegue a DEV
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    
+  # CD TRIGGER: Se activa SÓLO cuando se crea un tag (release)
+  release:
+    types: [created] 
 
 env:
   # Variables del entorno
@@ -15,18 +20,17 @@ env:
   
 jobs:
   # ===================================================================
-  # 1. INTEGRACIÓN CONTINUA (CI) & DESPLIEGUE A DEV
+  # 1. BUILD, TEST & DESPLIEGUE A DEV (CI Phase)
   # ===================================================================
   build_and_deploy_dev:
     name: 'CI, Test & Despliegue a DEV'
     runs-on: ubuntu-latest
-    environment: dev 
+    environment: dev # Usa secretos DBR_HOST_DEV y DBR_TOKEN_DEV
     
     steps:
       - name: '1. Checkout del Código'
         uses: actions/checkout@v4
       
-      # 2. CONFIGURACIÓN DEL ENTORNO DE PRUEBA
       - name: '2. Configurar Python ${{ env.PYTHON_VERSION }}'
         uses: actions/setup-python@v5
         with:
@@ -38,19 +42,19 @@ jobs:
       - name: '4. Ejecutar Pruebas (pytest)'
         run: pytest tests/
         
-      # 3. INSTALACIÓN DE LA CLI
+      # 5. INSTALACIÓN DE CLI Y CREACIÓN DE DIRECTORIOS
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main 
+        uses: databricks/setup-cli@main # Usando la referencia funcional @main
         
-      # 4. SOLUCIÓN FINAL DE RUTA: CREAR SOLO EL DIRECTORIO (Folder)
-      - name: '6. Crear Directorio Base /DEV/'
+      # 6. SOLUCIÓN DE RUTA: CREAR SOLO EL DIRECTORIO (Folder)
+      - name: '6. Crear Directorio Base Completo'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          # 🚨 DBR_TARGET_DIR solo crea la CARPETA contenedora
+          # Creamos la ruta completa hasta el directorio /DEV
           DBR_TARGET_DIR=/Shared/CI-CD/${{ github.repository_id }}/DEV
-          databricks workspace mkdirs ${DBR_TARGET_DIR} 
+          databricks workspace mkdirs ${DBR_TARGET_DIR} # ¡Garantiza que la carpeta exista!
           echo "Directorio contenedor ${DBR_TARGET_DIR} creado."
 
       - name: '7. Desplegar Notebook a DEV'
@@ -58,14 +62,14 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          # DBR_TARGET_FILE debe incluir el nombre del archivo final (.py)
+          # La ruta de destino incluye el nombre del archivo final
           DBR_TARGET_FILE=/Shared/CI-CD/${{ github.repository_id }}/DEV/main_ingestion.py
           
           databricks workspace import \
             --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
-            "${DBR_TARGET_FILE}" # <-- Apunta al archivo final
+            "${DBR_TARGET_FILE}" 
           echo "Notebook desplegado en DEV: ${DBR_TARGET_FILE}"
             
   # ===================================================================
@@ -74,6 +78,9 @@ jobs:
   deploy_to_prod:
     name: 'CD a PRODUCCIÓN (Requiere Aprobación)'
     runs-on: ubuntu-latest
+    
+    # Condición crucial: Solo se ejecuta si el evento fue 'release' y el Job de DEV fue exitoso.
+    if: success() && github.event_name == 'release'
     needs: [build_and_deploy_dev] 
     
     environment: 
