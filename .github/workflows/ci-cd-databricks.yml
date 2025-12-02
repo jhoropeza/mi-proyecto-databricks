@@ -48,7 +48,7 @@ jobs:
           export DATABRICKS_HOST=${{ secrets.DBR_HOST_DEV }}
           export DATABRICKS_TOKEN=${{ secrets.DBR_TOKEN_DEV }}
           
-          DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/DEV/ingestion
+          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
           
           # Comando sin barras invertidas (\)
           databricks workspace import \
@@ -86,7 +86,7 @@ jobs:
           export DATABRICKS_HOST=${{ secrets.DBR_HOST_PROD }}
           export DATABRICKS_TOKEN=${{ secrets.DBR_TOKEN_PROD }}
 
-          DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/PROD/final
+          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
           
           # Comando sin barras invertidas (\)
           databricks workspace import \
