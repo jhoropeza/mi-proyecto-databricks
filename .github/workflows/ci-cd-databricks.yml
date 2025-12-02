@@ -3,16 +3,20 @@
 name: Databricks CI/CD con Aprobación
 
 on:
+  # Se activa con push y pull request a la rama 'main'
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  # Variables del entorno (comunes a ambos Jobs)
+  # Variables del entorno
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   PYTHON_VERSION: '3.9' 
   
+  # **NOTA IMPORTANTE:** Usa un SHA válido para garantizar la inmutabilidad de la acción
+  DBR_ACTION_SHA: f4d9b04f7c1d7e2e8e9c20a8d5f7b4c3e2e1a0d9 
+
 jobs:
   # ===================================================================
   # 1. INTEGRACIÓN CONTINUA (CI) & DESPLIEGUE A DEV
@@ -40,18 +44,18 @@ jobs:
         
       # 3. DESPLIEGUE A DATABRICKS DEV
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main # <-- Usando la referencia funcional @main
+        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
         
-      # 4. SOLUCIÓN AL ERROR DE CARPETA (mkdirs)
-      - name: '6. Crear Directorio Base en Shared'
+      # 4. SOLUCIÓN FINAL: CREACIÓN DE LA RUTA COMPLETA
+      - name: '6. Crear Directorio Base Completo'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          # Este paso crea el directorio raíz /Shared/CI-CD/ID
-          DBR_BASE_PATH=/Shared/CI-CD/${{ github.repository_id }}
-          databricks workspace mkdirs ${DBR_BASE_PATH}
-          echo "Directorio base ${DBR_BASE_PATH} creado/verificado."
+          # Creamos el path completo hasta el directorio de destino
+          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
+          databricks workspace mkdirs ${DBR_TARGET_PATH} # <-- ¡SOLUCIÓN FINAL DE RUTA!
+          echo "Directorio final ${DBR_TARGET_PATH} creado/verificado."
 
       - name: '7. Desplegar Notebook a DEV'
         env:
@@ -60,12 +64,11 @@ jobs:
         run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
           
-          # Uso de flags explícitas y multilínea (solución al error de argumentos)
           databricks workspace import \
             --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
-            "${DBR_TARGET_PATH}"
+            "${DBR_TARGET_PATH}" 
           echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
             
   # ===================================================================
@@ -85,16 +88,16 @@ jobs:
       
       # 2. INSTALACIÓN Y CREACIÓN DE DIRECTORIOS
       - name: '2. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main # Usando la referencia funcional @main
+        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
         
-      - name: '3. Crear Directorio Base en Shared'
+      - name: '3. Crear Directorio Base Completo'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
-          DBR_BASE_PATH=/Shared/CI-CD/${{ github.repository_id }}
-          databricks workspace mkdirs ${DBR_BASE_PATH}
-          echo "Directorio base ${DBR_BASE_PATH} creado/verificado."
+          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
+          databricks workspace mkdirs ${DBR_TARGET_PATH} # <-- Creamos la carpeta final
+          echo "Directorio final ${DBR_TARGET_PATH} creado/verificado."
         
       - name: '4. Desplegar Notebook a PROD'
         env:
@@ -103,7 +106,6 @@ jobs:
         run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
           
-          # Uso de flags explícitas y multilínea (solución al error de argumentos)
           databricks workspace import \
             --language PYTHON \
             --overwrite \
