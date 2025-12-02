@@ -3,14 +3,12 @@
 name: Databricks CI/CD con Aprobación
 
 on:
-  # Se activa con push y pull request a la rama 'main'
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  # Variables del entorno (comunes a ambos Jobs)
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   PYTHON_VERSION: '3.9' 
 
@@ -21,51 +19,43 @@ jobs:
   build_and_deploy_dev:
     name: 'CI, Test & Despliegue a DEV'
     runs-on: ubuntu-latest
-    environment: dev # Utiliza secretos DBR_HOST_DEV y DBR_TOKEN_DEV
+    environment: dev
     
     steps:
       - name: '1. Checkout del Código'
         uses: actions/checkout@v4
       
-      # 2. CONFIGURACIÓN DEL ENTORNO DE PRUEBA
       - name: '2. Configurar Python ${{ env.PYTHON_VERSION }}'
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           
-      - name: '3. Instalar Dependencias (requirements.txt)'
+      - name: '3. Instalar Dependencias'
         run: pip install -r requirements.txt
         
-      # 3. EJECUCIÓN DE PRUEBAS
-      - name: '4. Ejecutar Pruebas (pytest)'
-        # Si los tests en 'tests/' fallan, el pipeline se detiene aquí.
+      - name: '4. Ejecutar Pruebas'
         run: pytest tests/
         
-      # 4. DESPLIEGUE A DATABRICKS DEV
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@v0.2.0 # Referencia fija
+        uses: databricks/setup-cli@main
         
       - name: '6. Desplegar Notebook a DEV'
-        uses: databricks/cli-action@v0.2.0 # Referencia fija
-        with:
-          databricks-host: ${{ secrets.DBR_HOST_DEV }}
-          databricks-token: ${{ secrets.DBR_TOKEN_DEV }}
-          cli-command: |
-            # Despliegue a la carpeta de DEV para pruebas (PoC: Host único)
-            DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/DEV/ingestion
-            databricks workspace import ${{ env.NOTEBOOK_PATH }} ${DBR_TARGET_PATH} --overwrite
-            echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
-            
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
+        run: |
+          DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/DEV/ingestion
+          databricks workspace import ${NOTEBOOK_PATH} ${DBR_TARGET_PATH} --overwrite
+          echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
+
   # ===================================================================
   # 2. DESPLIEGUE CONTINUO (CD) A PRODUCCIÓN
   # ===================================================================
   deploy_to_prod:
     name: 'CD a PRODUCCIÓN (Requiere Aprobación)'
     runs-on: ubuntu-latest
-    # SOLO se ejecuta si el Job de DEV fue exitoso
-    needs: [build_and_deploy_dev] 
+    needs: [build_and_deploy_dev]
     
-    # Esta configuración activa la pausa y pide aprobación manual
     environment: 
       name: prod 
       
@@ -74,15 +64,13 @@ jobs:
         uses: actions/checkout@v4
       
       - name: '2. Instalar Databricks CLI'
-        uses: databricks/setup-cli@v0.2.0 # Referencia fija
+        uses: databricks/setup-cli@main
         
       - name: '3. Desplegar Notebook a PROD'
-        uses: databricks/cli-action@v0.2.0 # Referencia fija
-        with:
-          databricks-host: ${{ secrets.DBR_HOST_PROD }}
-          databricks-token: ${{ secrets.DBR_TOKEN_PROD }}
-          cli-command: |
-            # Despliegue a la carpeta final de PROD (PoC: Host único)
-            DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/PROD/final
-            databricks workspace import ${{ env.NOTEBOOK_PATH }} ${DBR_TARGET_PATH} --overwrite
-            echo "Notebook desplegado en PROD: ${DBR_TARGET_PATH}"
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
+        run: |
+          DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/PROD/final
+          databricks workspace import ${NOTEBOOK_PATH} ${DBR_TARGET_PATH} --overwrite
+          echo "Notebook desplegado en PROD: ${DBR_TARGET_PATH}"
