@@ -55,7 +55,7 @@ jobs:
           databricks-host: ${{ secrets.DBR_HOST_DEV }}
           databricks-token: ${{ secrets.DBR_TOKEN_DEV }}
           cli-command: |
-            # Sube el código al workspace de Databricks DEV
+            # Sube el código a una ruta CLARAMENTE de DEV
             databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
             echo "Notebook desplegado en DEV: ${{ env.DBR_WORKSPACE_PATH }}"
             
@@ -88,6 +88,8 @@ jobs:
           databricks-host: ${{ secrets.DBR_HOST_PROD }}
           databricks-token: ${{ secrets.DBR_TOKEN_PROD }}
           cli-command: |
-            # Sube el código al workspace de Databricks PROD
+            # Sube el código al workspace de Databricks PROD Claramente en su ruta
+            databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
+            echo "Notebook desplegado en PROD: ${{ env.DBR_WORKSPACE_PATH }}"
             databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
             echo "Notebook desplegado en PROD: ${{ env.DBR_WORKSPACE_PATH }}"
