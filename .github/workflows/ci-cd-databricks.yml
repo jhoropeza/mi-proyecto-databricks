@@ -3,7 +3,6 @@
 name: Databricks CI/CD con Aprobación
 
 on:
-  # Se ejecuta en push y pull request a la rama principal (main)
   push:
     branches: [ "main" ]
   pull_request:
@@ -13,17 +12,16 @@ env:
   # Variables globales de la ruta del código y del workspace de Databricks
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   DBR_WORKSPACE_PATH: /Users/ci-cd/${{ github.repository_id }}/main_ingestion
-  PYTHON_VERSION: '3.9' # Versión de Python a usar para el CI
+  PYTHON_VERSION: '3.9' 
 
 jobs:
   # ===================================================================
   # 1. INTEGRACIÓN CONTINUA (CI) & DESPLIEGUE A DEV
-  # Este Job realiza: 1) Pruebas locales y 2) Despliegue en Databricks DEV.
   # ===================================================================
   build_and_deploy_dev:
     name: 'CI, Test & Despliegue a DEV'
     runs-on: ubuntu-latest
-    environment: dev # Asocia el Job al ambiente DEV para usar sus secretos
+    environment: dev 
     
     steps:
       - name: 'Checkout del Código'
@@ -36,58 +34,50 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           
       - name: '2. Instalar Dependencias (requirements.txt)'
-        # Asegúrate de que este archivo contenga pyspark y pytest fijados por versión.
         run: pip install -r requirements.txt
         
       # 2. EJECUCIÓN DE PRUEBAS
       - name: '3. Ejecutar Pruebas (pytest)'
-        # Si este step falla (los tests fallan), el pipeline se detiene.
         run: pytest tests/
         
       # 3. DESPLIEGUE A DATABRICKS DEV
       - name: '4. Instalar Databricks CLI'
-        uses: databricks/setup-cli@v0
+        uses: databricks/setup-cli@main # <--- CORREGIDO A @main
         
       - name: '5. Desplegar Notebook a DEV'
-        uses: databricks/cli-action@v1
+        uses: databricks/cli-action@main # <--- CORREGIDO A @main
         with:
-          # Uso de los secretos del ambiente 'dev'
           databricks-host: ${{ secrets.DBR_HOST_DEV }}
           databricks-token: ${{ secrets.DBR_TOKEN_DEV }}
           cli-command: |
-            # Sube el código a una ruta CLARAMENTE de DEV
-            databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
-            echo "Notebook desplegado en DEV: ${{ env.DBR_WORKSPACE_PATH }}"
+            # Despliegue a la carpeta de DEV
+            databricks workspace import ${{ env.NOTEBOOK_PATH }} /Users/ci-cd/${{ github.repository_id }}/DEV/${{ github.sha }} --overwrite
+            echo "Notebook desplegado en DEV: /Users/ci-cd/${{ github.repository_id }}/DEV/${{ github.sha }}"
             
   # ===================================================================
   # 2. DESPLIEGUE CONTINUO (CD) A PRODUCCIÓN
-  # Se ejecuta SOLO después de la aprobación manual.
   # ===================================================================
   deploy_to_prod:
     name: 'CD a PRODUCCIÓN (Requiere Aprobación)'
     runs-on: ubuntu-latest
-    # SOLO se ejecuta si el Job de DEV fue exitoso
     needs: [build_and_deploy_dev] 
     
-    # Configuración de Ambiente y Aprobación
     environment: 
       name: prod # 👈 ACTIVA la regla de aprobación en GitHub
-      url: ${{ vars.URL }} # Muestra el URL en el log de aprobación
       
     steps:
       - name: 'Checkout del Código'
         uses: actions/checkout@v4
       
       - name: '1. Instalar Databricks CLI'
-        uses: databricks/setup-cli@v0
+        uses: databricks/setup-cli@main # <--- CORREGIDO A @main
         
       - name: '2. Desplegar Notebook a PROD'
-        uses: databricks/cli-action@v1
+        uses: databricks/cli-action@main # <--- CORREGIDO A @main
         with:
-          # Uso de los secretos del ambiente 'prod'
           databricks-host: ${{ secrets.DBR_HOST_PROD }}
           databricks-token: ${{ secrets.DBR_TOKEN_PROD }}
           cli-command: |
-            # Sube el código al workspace de Databricks PROD Claramente en su ruta
-            databricks workspace import ${{ env.NOTEBOOK_PATH }} ${{ env.DBR_WORKSPACE_PATH }} --overwrite
-            echo "Notebook desplegado en PROD: ${{ env.DBR_WORKSPACE_PATH }}"
+            # Despliegue a la carpeta final de PROD
+            databricks workspace import ${{ env.NOTEBOOK_PATH }} /Users/ci-cd/${{ github.repository_id }}/PROD/final --overwrite
+            echo "Notebook desplegado en PROD: /Users/ci-cd/${{ github.repository_id }}/PROD/final"
