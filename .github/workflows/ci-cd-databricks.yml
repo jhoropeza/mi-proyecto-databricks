@@ -44,12 +44,19 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
+          # Establecer el host y el token como variables de entorno EXPLICITAS para la CLI
+          export DATABRICKS_HOST=${{ secrets.DBR_HOST_DEV }}
+          export DATABRICKS_TOKEN=${{ secrets.DBR_TOKEN_DEV }}
+          
           DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/DEV/ingestion
+          
+          # Comando sin barras invertidas (\)
           databricks workspace import \
-            --language PYTHON \ # <-- ¡CORREGIDO!
+            --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
             "${DBR_TARGET_PATH}"
+            
           echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
 
   # ===================================================================
@@ -75,10 +82,17 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
+          # Establecer el host y el token como variables de entorno EXPLICITAS para la CLI
+          export DATABRICKS_HOST=${{ secrets.DBR_HOST_PROD }}
+          export DATABRICKS_TOKEN=${{ secrets.DBR_TOKEN_PROD }}
+
           DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/PROD/final
+          
+          # Comando sin barras invertidas (\)
           databricks workspace import \
-            --language PYTHON \ # <-- ¡CORREGIDO!
+            --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
             "${DBR_TARGET_PATH}"
+            
           echo "Notebook desplegado en PROD: ${DBR_TARGET_PATH}"
