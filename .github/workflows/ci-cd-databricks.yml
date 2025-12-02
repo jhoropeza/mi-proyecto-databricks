@@ -72,7 +72,7 @@ jobs:
     # Configuración de Ambiente y Aprobación
     environment: 
       name: prod # 👈 ACTIVA la regla de aprobación en GitHub
-      url: ${{ secrets.DBR_HOST_PROD }} # Muestra el URL en el log de aprobación
+      url: ${{ vars.URL }} # Muestra el URL en el log de aprobación
       
     steps:
       - name: 'Checkout del Código'
