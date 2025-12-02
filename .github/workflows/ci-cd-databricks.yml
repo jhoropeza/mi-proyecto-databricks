@@ -3,14 +3,19 @@
 name: Databricks CI/CD con Aprobación
 
 on:
+  # Se activa con push y pull request a la rama 'main'
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 env:
+  # Variables del entorno
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   PYTHON_VERSION: '3.9' 
+  
+  # Usamos un SHA para referencia inmutable de la acción (Asegúrate de que este SHA sea válido)
+  DBR_ACTION_SHA: f4d9b04f7c1d7e2e8e9c20a8d5f7b4c3e2e1a0d9 
 
 jobs:
   # ===================================================================
@@ -19,80 +24,88 @@ jobs:
   build_and_deploy_dev:
     name: 'CI, Test & Despliegue a DEV'
     runs-on: ubuntu-latest
-    environment: dev
+    environment: dev # Utiliza secretos DBR_HOST_DEV y DBR_TOKEN_DEV
     
     steps:
       - name: '1. Checkout del Código'
         uses: actions/checkout@v4
       
+      # 2. CONFIGURACIÓN DEL ENTORNO DE PRUEBA
       - name: '2. Configurar Python ${{ env.PYTHON_VERSION }}'
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           
-      - name: '3. Instalar Dependencias'
+      - name: '3. Instalar Dependencias (requirements.txt)'
         run: pip install -r requirements.txt
         
-      - name: '4. Ejecutar Pruebas'
+      - name: '4. Ejecutar Pruebas (pytest)'
         run: pytest tests/
         
+      # 3. DESPLIEGUE A DATABRICKS DEV
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main
+        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
         
-      - name: '6. Desplegar Notebook a DEV'
+      # 4. SOLUCIÓN AL ERROR DE CARPETA (mkdirs)
+      - name: '6. Crear Directorio Base en Shared'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          # Establecer el host y el token como variables de entorno EXPLICITAS para la CLI
-          export DATABRICKS_HOST=${{ secrets.DBR_HOST_DEV }}
-          export DATABRICKS_TOKEN=${{ secrets.DBR_TOKEN_DEV }}
-          
+          DBR_BASE_PATH=/Shared/CI-CD/${{ github.repository_id }}
+          databricks workspace mkdirs ${DBR_BASE_PATH}
+          echo "Directorio base ${DBR_BASE_PATH} creado/verificado."
+
+      - name: '7. Desplegar Notebook a DEV'
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
+        run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
-          
-          # Comando sin barras invertidas (\)
           databricks workspace import \
             --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
             "${DBR_TARGET_PATH}"
-            
           echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
-
+            
   # ===================================================================
   # 2. DESPLIEGUE CONTINUO (CD) A PRODUCCIÓN
   # ===================================================================
   deploy_to_prod:
     name: 'CD a PRODUCCIÓN (Requiere Aprobación)'
     runs-on: ubuntu-latest
-    needs: [build_and_deploy_dev]
+    needs: [build_and_deploy_dev] 
     
     environment: 
-      name: prod 
+      name: prod # Activa la aprobación manual
       
     steps:
       - name: '1. Checkout del Código'
         uses: actions/checkout@v4
       
+      # 2. INSTALACIÓN Y CREACIÓN DE DIRECTORIOS
       - name: '2. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main
+        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
         
-      - name: '3. Desplegar Notebook a PROD'
+      - name: '3. Crear Directorio Base en Shared'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
-          # Establecer el host y el token como variables de entorno EXPLICITAS para la CLI
-          export DATABRICKS_HOST=${{ secrets.DBR_HOST_PROD }}
-          export DATABRICKS_TOKEN=${{ secrets.DBR_TOKEN_PROD }}
-
+          DBR_BASE_PATH=/Shared/CI-CD/${{ github.repository_id }}
+          databricks workspace mkdirs ${DBR_BASE_PATH}
+          echo "Directorio base ${DBR_BASE_PATH} creado/verificado."
+        
+      - name: '4. Desplegar Notebook a PROD'
+        env:
+          DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
+        run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
-          
-          # Comando sin barras invertidas (\)
           databricks workspace import \
             --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
             "${DBR_TARGET_PATH}"
-            
           echo "Notebook desplegado en PROD: ${DBR_TARGET_PATH}"
