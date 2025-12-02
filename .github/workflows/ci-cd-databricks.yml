@@ -45,7 +45,7 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
           DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/DEV/ingestion
-          databricks workspace import ${NOTEBOOK_PATH} ${DBR_TARGET_PATH} --overwrite
+          databricks workspace import --file ${NOTEBOOK_PATH} ${DBR_TARGET_PATH} --overwrite # <-- ¡CORREGIDO!
           echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
 
   # ===================================================================
@@ -72,5 +72,5 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
           DBR_TARGET_PATH=/Users/ci-cd/${{ github.repository_id }}/PROD/final
-          databricks workspace import ${NOTEBOOK_PATH} ${DBR_TARGET_PATH} --overwrite
+          databricks workspace import --file ${NOTEBOOK_PATH} ${DBR_TARGET_PATH} --overwrite
           echo "Notebook desplegado en PROD: ${DBR_TARGET_PATH}"
