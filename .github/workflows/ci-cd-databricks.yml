@@ -3,20 +3,16 @@
 name: Databricks CI/CD con Aprobación
 
 on:
-  # Se activa con push y pull request a la rama 'main'
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  # Variables del entorno
+  # Variables del entorno (comunes a ambos Jobs)
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   PYTHON_VERSION: '3.9' 
   
-  # Usamos un SHA para referencia inmutable de la acción (Asegúrate de que este SHA sea válido)
-  DBR_ACTION_SHA: f4d9b04f7c1d7e2e8e9c20a8d5f7b4c3e2e1a0d9 
-
 jobs:
   # ===================================================================
   # 1. INTEGRACIÓN CONTINUA (CI) & DESPLIEGUE A DEV
@@ -44,7 +40,7 @@ jobs:
         
       # 3. DESPLIEGUE A DATABRICKS DEV
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
+        uses: databricks/setup-cli@main # <-- Usando la referencia funcional @main
         
       # 4. SOLUCIÓN AL ERROR DE CARPETA (mkdirs)
       - name: '6. Crear Directorio Base en Shared'
@@ -52,6 +48,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
+          # Este paso crea el directorio raíz /Shared/CI-CD/ID
           DBR_BASE_PATH=/Shared/CI-CD/${{ github.repository_id }}
           databricks workspace mkdirs ${DBR_BASE_PATH}
           echo "Directorio base ${DBR_BASE_PATH} creado/verificado."
@@ -62,6 +59,8 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
+          
+          # Uso de flags explícitas y multilínea (solución al error de argumentos)
           databricks workspace import \
             --language PYTHON \
             --overwrite \
@@ -86,7 +85,7 @@ jobs:
       
       # 2. INSTALACIÓN Y CREACIÓN DE DIRECTORIOS
       - name: '2. Instalar Databricks CLI'
-        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
+        uses: databricks/setup-cli@main # Usando la referencia funcional @main
         
       - name: '3. Crear Directorio Base en Shared'
         env:
@@ -103,6 +102,8 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
+          
+          # Uso de flags explícitas y multilínea (solución al error de argumentos)
           databricks workspace import \
             --language PYTHON \
             --overwrite \
