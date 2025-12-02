@@ -3,7 +3,6 @@
 name: Databricks CI/CD con Aprobación
 
 on:
-  # Se activa con push y pull request a la rama 'main'
   push:
     branches: [ "main" ]
   pull_request:
@@ -14,8 +13,7 @@ env:
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   PYTHON_VERSION: '3.9' 
   
-  # **NOTA IMPORTANTE:** Usa un SHA válido para garantizar la inmutabilidad de la acción
-  DBR_ACTION_SHA: f4d9b04f7c1d7e2e8e9c20a8d5f7b4c3e2e1a0d9 
+# ¡SHA ELIMINADO!
 
 jobs:
   # ===================================================================
@@ -24,7 +22,7 @@ jobs:
   build_and_deploy_dev:
     name: 'CI, Test & Despliegue a DEV'
     runs-on: ubuntu-latest
-    environment: dev # Utiliza secretos DBR_HOST_DEV y DBR_TOKEN_DEV
+    environment: dev 
     
     steps:
       - name: '1. Checkout del Código'
@@ -44,7 +42,7 @@ jobs:
         
       # 3. DESPLIEGUE A DATABRICKS DEV
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
+        uses: databricks/setup-cli@main # <-- USANDO @main
         
       # 4. SOLUCIÓN FINAL: CREACIÓN DE LA RUTA COMPLETA
       - name: '6. Crear Directorio Base Completo'
@@ -52,9 +50,8 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          # Creamos el path completo hasta el directorio de destino
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
-          databricks workspace mkdirs ${DBR_TARGET_PATH} # <-- ¡SOLUCIÓN FINAL DE RUTA!
+          databricks workspace mkdirs ${DBR_TARGET_PATH}
           echo "Directorio final ${DBR_TARGET_PATH} creado/verificado."
 
       - name: '7. Desplegar Notebook a DEV'
@@ -80,7 +77,7 @@ jobs:
     needs: [build_and_deploy_dev] 
     
     environment: 
-      name: prod # Activa la aprobación manual
+      name: prod 
       
     steps:
       - name: '1. Checkout del Código'
@@ -88,7 +85,7 @@ jobs:
       
       # 2. INSTALACIÓN Y CREACIÓN DE DIRECTORIOS
       - name: '2. Instalar Databricks CLI'
-        uses: databricks/setup-cli@${{ env.DBR_ACTION_SHA }}
+        uses: databricks/setup-cli@main # <-- USANDO @main
         
       - name: '3. Crear Directorio Base Completo'
         env:
@@ -96,7 +93,7 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
           DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
-          databricks workspace mkdirs ${DBR_TARGET_PATH} # <-- Creamos la carpeta final
+          databricks workspace mkdirs ${DBR_TARGET_PATH}
           echo "Directorio final ${DBR_TARGET_PATH} creado/verificado."
         
       - name: '4. Desplegar Notebook a PROD'
