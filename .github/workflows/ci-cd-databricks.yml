@@ -13,8 +13,6 @@ env:
   NOTEBOOK_PATH: notebooks/ingestion/main_ingestion.py
   PYTHON_VERSION: '3.9' 
   
-# ¡SHA ELIMINADO!
-
 jobs:
   # ===================================================================
   # 1. INTEGRACIÓN CONTINUA (CI) & DESPLIEGUE A DEV
@@ -40,33 +38,35 @@ jobs:
       - name: '4. Ejecutar Pruebas (pytest)'
         run: pytest tests/
         
-      # 3. DESPLIEGUE A DATABRICKS DEV
+      # 3. INSTALACIÓN DE LA CLI
       - name: '5. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main # <-- USANDO @main
+        uses: databricks/setup-cli@main 
         
-      # 4. SOLUCIÓN FINAL: CREACIÓN DE LA RUTA COMPLETA
-      - name: '6. Crear Directorio Base Completo'
+      # 4. SOLUCIÓN FINAL DE RUTA: CREAR SOLO EL DIRECTORIO (Folder)
+      - name: '6. Crear Directorio Base /DEV/'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
-          databricks workspace mkdirs ${DBR_TARGET_PATH}
-          echo "Directorio final ${DBR_TARGET_PATH} creado/verificado."
+          # 🚨 DBR_TARGET_DIR solo crea la CARPETA contenedora
+          DBR_TARGET_DIR=/Shared/CI-CD/${{ github.repository_id }}/DEV
+          databricks workspace mkdirs ${DBR_TARGET_DIR} 
+          echo "Directorio contenedor ${DBR_TARGET_DIR} creado."
 
       - name: '7. Desplegar Notebook a DEV'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_DEV }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_DEV }}
         run: |
-          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/DEV/ingestion
+          # DBR_TARGET_FILE debe incluir el nombre del archivo final (.py)
+          DBR_TARGET_FILE=/Shared/CI-CD/${{ github.repository_id }}/DEV/main_ingestion.py
           
           databricks workspace import \
             --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
-            "${DBR_TARGET_PATH}" 
-          echo "Notebook desplegado en DEV: ${DBR_TARGET_PATH}"
+            "${DBR_TARGET_FILE}" # <-- Apunta al archivo final
+          echo "Notebook desplegado en DEV: ${DBR_TARGET_FILE}"
             
   # ===================================================================
   # 2. DESPLIEGUE CONTINUO (CD) A PRODUCCIÓN
@@ -77,7 +77,7 @@ jobs:
     needs: [build_and_deploy_dev] 
     
     environment: 
-      name: prod 
+      name: prod # Activa la aprobación manual
       
     steps:
       - name: '1. Checkout del Código'
@@ -85,27 +85,27 @@ jobs:
       
       # 2. INSTALACIÓN Y CREACIÓN DE DIRECTORIOS
       - name: '2. Instalar Databricks CLI'
-        uses: databricks/setup-cli@main # <-- USANDO @main
+        uses: databricks/setup-cli@main
         
       - name: '3. Crear Directorio Base Completo'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
-          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
-          databricks workspace mkdirs ${DBR_TARGET_PATH}
-          echo "Directorio final ${DBR_TARGET_PATH} creado/verificado."
+          DBR_TARGET_DIR=/Shared/CI-CD/${{ github.repository_id }}/PROD
+          databricks workspace mkdirs ${DBR_TARGET_DIR}
+          echo "Directorio contenedor ${DBR_TARGET_DIR} creado."
         
       - name: '4. Desplegar Notebook a PROD'
         env:
           DATABRICKS_HOST: ${{ secrets.DBR_HOST_PROD }}
           DATABRICKS_TOKEN: ${{ secrets.DBR_TOKEN_PROD }}
         run: |
-          DBR_TARGET_PATH=/Shared/CI-CD/${{ github.repository_id }}/PROD/final
+          DBR_TARGET_FILE=/Shared/CI-CD/${{ github.repository_id }}/PROD/main_ingestion.py
           
           databricks workspace import \
             --language PYTHON \
             --overwrite \
             --file "${NOTEBOOK_PATH}" \
-            "${DBR_TARGET_PATH}"
-          echo "Notebook desplegado en PROD: ${DBR_TARGET_PATH}"
+            "${DBR_TARGET_FILE}"
+          echo "Notebook desplegado en PROD: ${DBR_TARGET_FILE}"
