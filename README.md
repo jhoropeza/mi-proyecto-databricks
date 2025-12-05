@@ -1,4 +1,6 @@
 # mi-proyecto-databricks
 
-# Pasos CI/CD Hola que tal
+# Pasos CI/CD del repositorio
+
+![Diagrama de Flujo del Proceso](assets/funcionRepositorio.png)
 
